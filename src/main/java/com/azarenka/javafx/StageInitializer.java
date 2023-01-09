@@ -1,46 +1,66 @@
 package com.azarenka.javafx;
 
-import com.azarenka.javafx.FxApplication.StageEvent;
+
 import com.azarenka.javafx.load.CommonWidget;
+import com.azarenka.javafx.load.PropertiesApp;
+import com.azarenka.javafx.load.PropertiesLoader;
+import com.azarenka.javafx.load.StageOptionsConsumer;
 import com.azarenka.javafx.load.WindowsLoader;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
 
 @Component
-public abstract class StageInitializer implements ApplicationListener<StageEvent> {
+public class StageInitializer implements ApplicationListener<StageEvent> {
 
     @Autowired
     private WindowsLoader windowsLoader;
+    @Autowired
+    private PropertiesLoader propertiesLoader;
+    private StageOptionsConsumer stageOptionsConsumer;
     private CommonWidget commonWidget;
     private static Stage stage;
     private String icon;
 
     @Override
     public void onApplicationEvent(StageEvent stageEvent) {
-        stage = stageEvent.getStage();
-        windowsLoader.initializeWindows();
+        initStage(stageEvent);
         if (Objects.nonNull(commonWidget)) {
-            commonWidget.load();
             Scene scene = commonWidget.getScene();
             setUpScene(scene);
-        } else {
-
         }
         stage.setIconified(false);
         stage.show();
     }
 
-    public void setCommonWidget(CommonWidget commonWidget) {
-        this.commonWidget = commonWidget;
+    private void initStage(StageEvent stageEvent) {
+        if(Objects.isNull(stage)){
+            stage = stageEvent.getStage();
+            if (propertiesLoader.hasResources()) {
+                propertiesLoader.load();
+                stageOptionsConsumer = new StageOptionsConsumer(stage);
+                stageOptionsConsumer.applyProperties(propertiesLoader);
+            }
+        }
     }
 
-    Stage getStage() {
+    public void setCommonWidget(CommonWidget commonWidget) {
+        this.commonWidget = commonWidget;
+        windowsLoader.initializeWindows();
+    }
+
+    public void setupPropertiesUrl(Resource url) {
+        propertiesLoader.setResource(url);
+    }
+
+    protected Stage getStage() {
         return stage;
     }
 
@@ -55,8 +75,9 @@ public abstract class StageInitializer implements ApplicationListener<StageEvent
     private void setUpScene(Scene scene) {
         stage.setScene(scene);
         stage.centerOnScreen();
-        stage.setResizable(false);
-        stage.getIcons().add(new Image(icon));
+        if (Objects.nonNull(icon)) {
+            stage.getIcons().add(new Image(icon));
+        }
         stage.setTitle(commonWidget.getTitle());
     }
 }
